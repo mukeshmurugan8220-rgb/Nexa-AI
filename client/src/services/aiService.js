@@ -1,5 +1,4 @@
-
-const API_URL = "http://localhost:5000/api/chat";
+const API_URL = "https://nexa-ai-f4nn.onrender.com/api/chat";
 
 export const sendMessageToAI = async (
   message,
@@ -38,7 +37,6 @@ export const sendMessageToAI = async (
     }
 
     return data.reply;
-
   } catch (error) {
     console.error("AI Service Error:", error);
 

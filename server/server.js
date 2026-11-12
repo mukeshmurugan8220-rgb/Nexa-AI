@@ -12,6 +12,8 @@ const PORT = process.env.PORT || 5000;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
+  "https://nexa-ai-wtjo.vercel.app",
+  "https://mukeshmurugan8220-rgb.github.io",
 ];
 
 // CORS Configuration
@@ -44,7 +46,5 @@ app.use("/api/chat", chatRoutes);
 
 // Start Server
 app.listen(PORT, () => {
-  console.log(
-    `🚀 NexaAI server running at http://localhost:${PORT}`
-  );
+  console.log(`🚀 NexaAI server running on port ${PORT}`);
 });
