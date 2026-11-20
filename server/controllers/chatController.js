@@ -18,6 +18,8 @@ const personas = {
 };
 
 export const sendMessage = async (req, res) => {
+  const requestStartTime = Date.now();
+
   try {
     const {
       message,
@@ -25,7 +27,8 @@ export const sendMessage = async (req, res) => {
       conversationHistory = [],
     } = req.body;
 
-    console.log("========== NEXAAI DEBUG ==========");
+    console.log("\n========== NEXAAI DEBUG ==========");
+    console.log("Request received:", new Date().toISOString());
     console.log("Message:", message);
     console.log("Persona:", persona);
 
@@ -39,6 +42,8 @@ export const sendMessage = async (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
+      console.error("GEMINI_API_KEY is missing.");
+
       return res.status(500).json({
         success: false,
         error: "Gemini API key is not configured.",
@@ -50,6 +55,7 @@ export const sendMessage = async (req, res) => {
       vertexai: false,
     });
 
+    // Process conversation history
     const history = Array.isArray(conversationHistory)
       ? conversationHistory.slice(-12)
       : [];
@@ -69,6 +75,7 @@ export const sendMessage = async (req, res) => {
       })
       .join("\n\n");
 
+    // Create prompt
     const prompt = `
 ${personas[persona] || personas.general}
 
@@ -79,6 +86,7 @@ Instructions:
 - Explain technical topics with practical examples.
 - Do not unnecessarily ask users to repeat information.
 - Maintain a friendly and professional tone.
+- Keep simple answers concise.
 
 Previous Conversation:
 ${formattedHistory || "No previous conversation."}
@@ -91,22 +99,38 @@ NexaAI Response:
 
     console.log("Sending request to Gemini 3.8 Flash...");
 
+    // Measure Gemini API response time
+    const geminiStartTime = Date.now();
+
     const response = await ai.interactions.create({
       model: "gemini-3.8-flash",
       input: prompt,
     });
 
+    const geminiTime = (
+      (Date.now() - geminiStartTime) / 1000
+    ).toFixed(2);
+
+    console.log("Gemini Processing Time:", geminiTime, "seconds");
+
     const reply = response.output_text;
 
     if (!reply || !reply.trim()) {
+      console.error("Gemini returned an empty response.");
+
       return res.status(502).json({
         success: false,
         error: "Gemini returned an empty response. Please try again.",
       });
     }
 
+    const totalTime = (
+      (Date.now() - requestStartTime) / 1000
+    ).toFixed(2);
+
+    console.log("Total Request Time:", totalTime, "seconds");
     console.log("Gemini response generated successfully.");
-    console.log("========== END DEBUG ==========");
+    console.log("========== END DEBUG ==========\n");
 
     return res.status(200).json({
       success: true,
@@ -114,10 +138,15 @@ NexaAI Response:
     });
 
   } catch (error) {
-    console.error("========== GEMINI ERROR ==========");
+    const totalTime = (
+      (Date.now() - requestStartTime) / 1000
+    ).toFixed(2);
+
+    console.error("\n========== GEMINI ERROR ==========");
     console.error("Error Message:", error.message);
     console.error("Error Status:", error.status);
-    console.error("========== END ERROR ==========");
+    console.error("Total Time Before Error:", totalTime, "seconds");
+    console.error("========== END ERROR ==========\n");
 
     return res.status(500).json({
       success: false,
