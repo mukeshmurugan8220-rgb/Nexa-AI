@@ -25,40 +25,31 @@ export const sendMessage = async (req, res) => {
       conversationHistory = [],
     } = req.body;
 
-    console.log("\n========== NEXAAI DEBUG ==========");
-    console.log("Current Message:", message);
-    console.log("Selected Persona:", persona);
+    console.log("========== NEXAAI DEBUG ==========");
+    console.log("Message:", message);
+    console.log("Persona:", persona);
 
-    // Validate message
-    if (
-      typeof message !== "string" ||
-      !message.trim()
-    ) {
+    if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
         success: false,
         error: "Please enter a valid message.",
       });
     }
 
-    // Validate API key
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.error("GEMINI_API_KEY is missing.");
-
       return res.status(500).json({
         success: false,
         error: "Gemini API key is not configured.",
       });
     }
 
-    // Initialize Gemini AI
     const ai = new GoogleGenAI({
-      apiKey: apiKey,
+      apiKey,
       vertexai: false,
     });
 
-    // Process conversation history
     const history = Array.isArray(conversationHistory)
       ? conversationHistory.slice(-12)
       : [];
@@ -78,7 +69,6 @@ export const sendMessage = async (req, res) => {
       })
       .join("\n\n");
 
-    // Create AI prompt
     const prompt = `
 ${personas[persona] || personas.general}
 
@@ -99,19 +89,16 @@ ${message.trim()}
 NexaAI Response:
 `;
 
-    console.log("Sending request to Gemini...");
+    console.log("Sending request to Gemini 3.8 Flash...");
 
-    // Generate AI response
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
+    const response = await ai.interactions.create({
+      model: "gemini-3.8-flash",
+      input: prompt,
     });
 
-    const reply = response.text;
+    const reply = response.output_text;
 
     if (!reply || !reply.trim()) {
-      console.error("Gemini returned an empty response.");
-
       return res.status(502).json({
         success: false,
         error: "Gemini returned an empty response. Please try again.",
@@ -119,7 +106,7 @@ NexaAI Response:
     }
 
     console.log("Gemini response generated successfully.");
-    console.log("========== END DEBUG ==========\n");
+    console.log("========== END DEBUG ==========");
 
     return res.status(200).json({
       success: true,
@@ -130,7 +117,6 @@ NexaAI Response:
     console.error("========== GEMINI ERROR ==========");
     console.error("Error Message:", error.message);
     console.error("Error Status:", error.status);
-    console.error("Error Details:", error);
     console.error("========== END ERROR ==========");
 
     return res.status(500).json({
