@@ -13,6 +13,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
   "https://nexa-ai.vercel.app",
+  "https://nexa-ai-ruddy.vercel.app",
 ];
 
 // CORS Configuration
@@ -20,13 +21,12 @@ const corsOptions = {
   origin: (origin, callback) => {
     if (
       !origin ||
-      allowedOrigins.includes(origin) ||
-      /^https:\/\/nexa-[a-z0-9-]+-mukesh-s-projects13\.vercel\.app$/.test(origin)
+      allowedOrigins.includes(origin)
     ) {
       callback(null, true);
     } else {
       console.log("Blocked Origin:", origin);
-      callback(null, false);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -34,6 +34,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
 app.use(express.json());
 
 app.get("/", (req, res) => {
