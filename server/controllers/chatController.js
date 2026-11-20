@@ -1,21 +1,21 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 const personas = {
   general:
     "You are NexaAI, a helpful and friendly AI assistant. Remember the conversation and understand follow-up questions.",
+
   coding:
     "You are an expert programming and coding assistant. Explain code clearly with examples.",
-  study:
-    "You are a friendly tutor who explains topics simply.",
-  career:
-    "You are a professional career advisor.",
-  content:
-    "You are a creative content writer.",
-};
 
-const sleep = (ms) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+  study:
+    "You are a friendly tutor who explains topics simply and clearly.",
+
+  career:
+    "You are a professional career advisor who provides practical career guidance.",
+
+  content:
+    "You are a creative content writer who creates engaging and high-quality content.",
+};
 
 export const sendMessage = async (req, res) => {
   try {
@@ -25,22 +25,26 @@ export const sendMessage = async (req, res) => {
       conversationHistory = [],
     } = req.body;
 
-    // DEBUG LOGS
     console.log("\n========== NEXAAI DEBUG ==========");
     console.log("Current Message:", message);
-    console.log("Previous Messages:", conversationHistory);
+    console.log("Selected Persona:", persona);
 
-    if (!message || !message.trim()) {
+    // Validate message
+    if (
+      typeof message !== "string" ||
+      !message.trim()
+    ) {
       return res.status(400).json({
         success: false,
-        error: "Please enter a message.",
+        error: "Please enter a valid message.",
       });
     }
 
+    // Validate API key
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      console.error("Gemini API key is missing.");
+      console.error("GEMINI_API_KEY is missing.");
 
       return res.status(500).json({
         success: false,
@@ -48,11 +52,13 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    // Initialize Gemini AI
     const ai = new GoogleGenAI({
-      apiKey,
+      apiKey: apiKey,
       vertexai: false,
     });
 
+    // Process conversation history
     const history = Array.isArray(conversationHistory)
       ? conversationHistory.slice(-12)
       : [];
@@ -60,6 +66,7 @@ export const sendMessage = async (req, res) => {
     const formattedHistory = history
       .filter(
         (item) =>
+          item &&
           ["user", "assistant"].includes(item.role) &&
           typeof item.content === "string"
       )
@@ -71,67 +78,64 @@ export const sendMessage = async (req, res) => {
       })
       .join("\n\n");
 
-    console.log("Formatted History:", formattedHistory);
-    console.log("========== END DEBUG ==========\n");
-
+    // Create AI prompt
     const prompt = `
 ${personas[persona] || personas.general}
 
-IMPORTANT:
+Instructions:
 - Remember the previous conversation.
-- Understand follow-up questions using previous messages.
-- If the user says "it", "this", "that" or similar words, use the conversation context.
-- Treat the previous conversation as important context.
-- Give clear, helpful and accurate answers.
-- Do not unnecessarily ask the user to repeat previous information.
+- Understand follow-up questions using conversation history.
+- Give clear, accurate and helpful answers.
+- Explain technical topics with practical examples.
+- Do not unnecessarily ask users to repeat information.
+- Maintain a friendly and professional tone.
 
 Previous Conversation:
 ${formattedHistory || "No previous conversation."}
 
 Current User Message:
-${message}
+${message.trim()}
 
 NexaAI Response:
 `;
 
-    let interaction = await ai.interactions.create({
-      model: "gemini-3.5-flash-lite",
-      input: prompt,
-      background: true,
+    console.log("Sending request to Gemini...");
+
+    // Generate AI response
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
     });
 
-    let attempts = 0;
+    const reply = response.text;
 
-    while (
-      interaction.status === "in_progress" &&
-      attempts < 20
-    ) {
-      await sleep(2000);
+    if (!reply || !reply.trim()) {
+      console.error("Gemini returned an empty response.");
 
-      interaction = await ai.interactions.get(
-        interaction.id
-      );
-
-      attempts++;
-    }
-
-    if (interaction.status !== "completed") {
       return res.status(502).json({
         success: false,
-        error: "AI response failed or timed out. Please try again.",
+        error: "Gemini returned an empty response. Please try again.",
       });
     }
 
-    return res.json({
+    console.log("Gemini response generated successfully.");
+    console.log("========== END DEBUG ==========\n");
+
+    return res.status(200).json({
       success: true,
-      reply: interaction.output_text,
+      reply: reply.trim(),
     });
+
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("========== GEMINI ERROR ==========");
+    console.error("Error Message:", error.message);
+    console.error("Error Status:", error.status);
+    console.error("Error Details:", error);
+    console.error("========== END ERROR ==========");
 
     return res.status(500).json({
       success: false,
-      error: "Unable to generate AI response.",
+      error: error.message || "Unable to generate AI response.",
     });
   }
 };
