@@ -50,9 +50,13 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    // Gemini AI Configuration
     const ai = new GoogleGenAI({
       apiKey,
       vertexai: false,
+      httpOptions: {
+        timeout: 60000,
+      },
     });
 
     // Process conversation history
@@ -68,9 +72,7 @@ export const sendMessage = async (req, res) => {
           typeof item.content === "string"
       )
       .map((item) => {
-        const role =
-          item.role === "user" ? "User" : "NexaAI";
-
+        const role = item.role === "user" ? "User" : "NexaAI";
         return `${role}: ${item.content}`;
       })
       .join("\n\n");
@@ -97,13 +99,13 @@ ${message.trim()}
 NexaAI Response:
 `;
 
-    console.log("Sending request to Gemini 3.8 Flash...");
+    console.log("Sending request to Gemini...");
 
-    // Measure Gemini API response time
+    // Gemini response time monitoring
     const geminiStartTime = Date.now();
 
     const response = await ai.interactions.create({
-      model: "gemini-3.8-flash",
+      model: "gemini-3.6-flash",
       input: prompt,
     });
 
@@ -115,7 +117,7 @@ NexaAI Response:
 
     const reply = response.output_text;
 
-    if (!reply || !reply.trim()) {
+    if (typeof reply !== "string" || !reply.trim()) {
       console.error("Gemini returned an empty response.");
 
       return res.status(502).json({
@@ -146,11 +148,24 @@ NexaAI Response:
     console.error("Error Message:", error.message);
     console.error("Error Status:", error.status);
     console.error("Total Time Before Error:", totalTime, "seconds");
+
     console.error("========== END ERROR ==========\n");
+
+    let errorMessage = "Unable to generate AI response. Please try again.";
+
+    if (error.status === 429) {
+      errorMessage = "Gemini API rate limit exceeded. Please try again later.";
+    } else if (error.status === 503) {
+      errorMessage = "Gemini AI is temporarily overloaded. Please try again.";
+    } else if (error.name === "AbortError" || error.name === "TimeoutError") {
+      errorMessage = "Gemini response timed out. Please try again.";
+    } else if (error.status === 400 || error.status === 403) {
+      errorMessage = error.message;
+    }
 
     return res.status(500).json({
       success: false,
-      error: error.message || "Unable to generate AI response.",
+      error: errorMessage,
     });
   }
 };
