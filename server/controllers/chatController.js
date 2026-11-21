@@ -32,6 +32,7 @@ export const sendMessage = async (req, res) => {
     console.log("Message:", message);
     console.log("Persona:", persona);
 
+    // Validate user message
     if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
         success: false,
@@ -39,6 +40,7 @@ export const sendMessage = async (req, res) => {
       });
     }
 
+    // Gemini API key
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -77,7 +79,7 @@ export const sendMessage = async (req, res) => {
       })
       .join("\n\n");
 
-    // Create prompt
+    // Create AI prompt
     const prompt = `
 ${personas[persona] || personas.general}
 
@@ -99,9 +101,9 @@ ${message.trim()}
 NexaAI Response:
 `;
 
-    console.log("Sending request to Gemini...");
+    console.log("Sending request to Gemini 3.6 Flash...");
 
-    // Gemini response time monitoring
+    // Measure Gemini API response time
     const geminiStartTime = Date.now();
 
     const response = await ai.interactions.create({
@@ -148,22 +150,34 @@ NexaAI Response:
     console.error("Error Message:", error.message);
     console.error("Error Status:", error.status);
     console.error("Total Time Before Error:", totalTime, "seconds");
-
     console.error("========== END ERROR ==========\n");
 
-    let errorMessage = "Unable to generate AI response. Please try again.";
+    let errorMessage =
+      "Unable to generate AI response. Please try again.";
+
+    let statusCode = 500;
 
     if (error.status === 429) {
-      errorMessage = "Gemini API rate limit exceeded. Please try again later.";
-    } else if (error.status === 503) {
-      errorMessage = "Gemini AI is temporarily overloaded. Please try again.";
-    } else if (error.name === "AbortError" || error.name === "TimeoutError") {
-      errorMessage = "Gemini response timed out. Please try again.";
+      statusCode = 429;
+      errorMessage =
+        "Gemini API rate limit exceeded. Please try again later.";
+    } else if (error.status === 503 || error.status === 504) {
+      statusCode = 503;
+      errorMessage =
+        "Gemini AI is temporarily overloaded. Please try again.";
+    } else if (
+      error.name === "AbortError" ||
+      error.name === "TimeoutError"
+    ) {
+      statusCode = 504;
+      errorMessage =
+        "Gemini response timed out. Please try again.";
     } else if (error.status === 400 || error.status === 403) {
+      statusCode = error.status;
       errorMessage = error.message;
     }
 
-    return res.status(500).json({
+    return res.status(statusCode).json({
       success: false,
       error: errorMessage,
     });
