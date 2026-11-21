@@ -1,3 +1,4 @@
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -20,7 +21,9 @@ const allowedOrigins = [
 
   "https://nexa-ai-git-main-mukesh-s-projects13.vercel.app",
 
-  "https://nexa-amv1cv5uf-mukesh-s-projects13.vercel.app"
+  "https://nexa-amv1cv5uf-mukesh-s-projects13.vercel.app",
+
+  "https://nexa-ilfucnaba-mukesh-s-projects13.vercel.app"
 ];
 
 // CORS Configuration
@@ -34,13 +37,17 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
+
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+
     allowedHeaders: ["Content-Type", "Authorization"]
   })
 );
 
+// Middleware
 app.use(express.json());
 
+// Backend Health Check
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -48,8 +55,10 @@ app.get("/", (req, res) => {
   });
 });
 
+// Chat API Routes
 app.use("/api/chat", chatRoutes);
 
+// Start Server
 app.listen(PORT, () => {
   console.log(`NexaAI Server running on port ${PORT}`);
 });
